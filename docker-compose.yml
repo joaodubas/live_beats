@@ -1,0 +1,41 @@
+---
+services:
+  db:
+    image: 'postgres:16.1-alpine3.18'
+    init: true
+    hostname: &postgres_hostname db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: &postgres_user postgres
+      POSTGRES_PASSWORD: &postgres_password postgres
+    volumes:
+      - 'db_data:/var/lib/postgresql/data'
+  app:
+    image: 'joaodubas/livebeats:${LIVE_BEATS_TAG:-dev}'
+    build:
+      target: developer
+      args:
+        BUILDER_IMAGE: 'hexpm/elixir:1.15.7-erlang-25.3.2.7-debian-buster-20231009-slim'
+        RUNNER_IMAGE: 'debian:buster-20231009-slim'
+    init: true
+    hostname: app
+    restart: unless-stopped
+    environment:
+      LIVE_BEATS_GITHUB_CLIENT_ID: '${LIVE_BEATS_GITHUB_CLIENT_ID:-}'
+      LIVE_BEATS_GITHUB_CLIENT_SECRET: '${LIVE_BEATS_GITHUB_CLIENT_SECRET:-}'
+      POSTGRES_USER: *postgres_user
+      POSTGRES_PASSWORD: *postgres_password
+      POSTGRES_HOSTNAME: *postgres_hostname
+    volumes:
+      - './:/app'
+      - 'app_build:/app/_build'
+      - 'app_deps:/app/deps'
+    ports:
+      - '4000:4000'
+    entrypoint: sleep
+    command: infinity
+volumes:
+  db_data: {}
+  app_build: {}
+  app_deps: {}
+
