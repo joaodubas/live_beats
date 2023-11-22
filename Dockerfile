@@ -15,7 +15,38 @@
 ARG BUILDER_IMAGE="hexpm/elixir:1.18.4-erlang-27.3.4-debian-bookworm-20250520-slim"
 ARG RUNNER_IMAGE="debian:bookworm-20250520-slim"
 
-FROM ${BUILDER_IMAGE} AS builder
+ARG LIVE_BEATS_GITHUB_CLIENT_ID=""
+ARG LIVE_BEATS_GITHUB_CLIENT_SECRET=""
+
+FROM ${BUILDER_IMAGE} as developer
+
+# install system dependencies
+RUN apt-get -y update \
+    && apt-get install -y \
+        build-essential \
+        git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt_lists/*_*
+
+WORKDIR /app
+
+# install hex + rebar
+RUN mix do local.hex --force, local.rebar --force
+
+# install application dependencies
+COPY mix.exs mix.lock ./
+COPY config/config.exs config/dev.exs config/test.exs config/
+RUN mix do deps.get, deps.compile
+
+COPY priv priv
+COPY lib lib
+COPY assets assets
+COPY test test
+RUN mix do assets.deploy, compile
+
+EXPOSE 4000
+
+FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y \
@@ -73,28 +104,37 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y \
-  && apt-get install -y curl ffmpeg libncurses5 libstdc++6 locales openssl s3fs \
-  && apt-get clean \
-  && rm -f /var/lib/apt/lists/*_*
+    && apt-get install -y curl ffmpeg libncurses5 libstdc++6 locales openssl s3fs \
+    && apt-get clean \
+    && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-  && locale-gen
+    && locale-gen
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
+# Set local user
+RUN groupadd --gid 1000 app \
+    && useradd \
+        --uid 1000 \
+        --gid app \
+        --home-dir /home/app \
+        --create-home \
+        app
+
 WORKDIR "/app"
-RUN chown nobody /app
+RUN chown app:app /app
 ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/prod/rel/live_beats ./
-# COPY --from=builder --chown=nobody:root /app/.postgresql/ ./.postgresql
-COPY --from=builder --chown=nobody:root /app/.bumblebee/ ./.bumblebee
+COPY --from=builder --chown=app:app /app/_build/prod/rel/live_beats ./
+# COPY --from=builder --chown=app:app /app/.postgresql/ ./.postgresql
+COPY --from=builder --chown=app:app /app/.bumblebee/ ./.bumblebee
 
-USER root
+USER app
 
 # Set the runtime ENV
 ENV ECTO_IPV6="true"
