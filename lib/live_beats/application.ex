@@ -9,10 +9,10 @@ defmodule LiveBeats.Application do
     {:ok, whisper} = Bumblebee.load_model({:hf, "openai/whisper-tiny"})
     {:ok, featurizer} = Bumblebee.load_featurizer({:hf, "openai/whisper-tiny"})
     {:ok, tokenizer} = Bumblebee.load_tokenizer({:hf, "openai/whisper-tiny"})
+    {:ok, generation_config} = Bumblebee.load_generation_config({:hf, "openai/whisper-tiny"})
 
-    Bumblebee.Audio.speech_to_text(whisper, featurizer, tokenizer,
+    Bumblebee.Audio.speech_to_text_whisper(whisper, featurizer, tokenizer, generation_config,
       compile: [batch_size: 1],
-      max_new_tokens: 100,
       defn_options: [compiler: EXLA]
     )
   end
