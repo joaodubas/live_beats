@@ -21,13 +21,14 @@ defmodule LiveBeatsWeb do
 
   def controller do
     quote do
+      use Gettext, backend: LiveBeatsWeb.Gettext
+
       use Phoenix.Controller,
         namespace: LiveBeatsWeb,
         formats: [:html, :json],
         layouts: [html: LiveBeatsWeb.Layouts]
 
       import Plug.Conn
-      import LiveBeatsWeb.Gettext
       alias LiveBeatsWeb.Router.Helpers, as: Routes
       unquote(verified_routes())
     end
@@ -92,8 +93,8 @@ defmodule LiveBeatsWeb do
 
   def channel do
     quote do
+      use Gettext, backend: LiveBeatsWeb.Gettext
       use Phoenix.Channel
-      import LiveBeatsWeb.Gettext
     end
   end
 
@@ -102,10 +103,10 @@ defmodule LiveBeatsWeb do
       # Use all HTML functionality (forms, tags, etc)
       import Phoenix.HTML
       import Phoenix.HTML.Form
+      use Gettext, backend: LiveBeatsWeb.Gettext
       use PhoenixHTMLHelpers
 
       import LiveBeatsWeb.CoreComponents
-      import LiveBeatsWeb.Gettext
       alias LiveBeatsWeb.Router.Helpers, as: Routes
       alias Phoenix.LiveView.JS
       unquote(verified_routes())
