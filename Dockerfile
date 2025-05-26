@@ -12,14 +12,16 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.12.0-erlang-24.0.1-debian-bullseye-20210902-slim
 #
-ARG BUILDER_IMAGE="hexpm/elixir:1.17.3-erlang-27.1.2-debian-bookworm-20241016-slim"
-ARG RUNNER_IMAGE="debian:bookworm-20241016-slim"
+ARG BUILDER_IMAGE="hexpm/elixir:1.18.4-erlang-27.3.4-debian-bookworm-20250520-slim"
+ARG RUNNER_IMAGE="debian:bookworm-202505020-slim"
 
 FROM ${BUILDER_IMAGE} AS builder
 
 # install build dependencies
-RUN apt-get update -y && apt-get install -y build-essential git curl ffmpeg \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN apt-get update -y \
+  && apt-get install -y build-essential curl git ffmpeg \
+  && apt-get clean \
+  && rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
@@ -58,7 +60,7 @@ COPY assets assets
 RUN mix assets.deploy
 
 RUN mix compile
-RUN mix run -e 'LiveBeats.Application.load_serving()' --no-start
+# RUN mix run -e 'LiveBeats.Application.load_serving()' --no-start
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
@@ -70,15 +72,18 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
-RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales curl ffmpeg s3fs \
-  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN apt-get update -y \
+  && apt-get install -y curl ffmpeg libncurses5 libstdc++6 locales openssl s3fs \
+  && apt-get clean \
+  && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
+  && locale-gen
 
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
 
 WORKDIR "/app"
 RUN chown nobody /app
@@ -95,4 +100,4 @@ USER root
 ENV ECTO_IPV6="true"
 ENV ERL_AFLAGS="-proto_dist inet6_tcp"
 
-CMD /app/bin/server
+CMD ["/app/bin/server"]
