@@ -53,7 +53,7 @@ defmodule LiveBeats.MixProject do
       {:phoenix_html_helpers, "~> 1.0.0"},
       {:phoenix_live_dashboard, "~> 0.8.0"},
       {:phoenix_live_reload, "~> 1.6.0", only: :dev},
-      {:phoenix_live_view, github: "phoenixframework/phoenix_live_view", override: true},
+      {:phoenix_live_view, "~> 1.0.0"},
       {:plug_cowboy, "~> 2.7.0"},
       {:postgrex, "~> 0.20.0"},
       {:req, "~> 0.5.0"},
