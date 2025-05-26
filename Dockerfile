@@ -13,7 +13,7 @@
 #   - Ex: hexpm/elixir:1.12.0-erlang-24.0.1-debian-bullseye-20210902-slim
 #
 ARG BUILDER_IMAGE="hexpm/elixir:1.18.4-erlang-27.3.4-debian-bookworm-20250520-slim"
-ARG RUNNER_IMAGE="debian:bookworm-202505020-slim"
+ARG RUNNER_IMAGE="debian:bookworm-20250520-slim"
 
 FROM ${BUILDER_IMAGE} AS builder
 
