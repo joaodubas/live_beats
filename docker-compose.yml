@@ -13,11 +13,11 @@ services:
   app:
     image: 'joaodubas/livebeats:${LIVE_BEATS_TAG:-dev}'
     build:
-      target: developer
+      target: builder
       args:
-        BUILDER_IMAGE: 'hexpm/elixir:1.15.7-erlang-25.3.2.7-debian-buster-20231009-slim'
-        RUNNER_IMAGE: 'debian:buster-20231009-slim'
+        LIVE_BEATS_ENV: dev
     init: true
+    pull_policy: never
     hostname: app
     restart: unless-stopped
     environment:
@@ -31,7 +31,7 @@ services:
       - 'app_build:/app/_build'
       - 'app_deps:/app/deps'
     ports:
-      - '4000:4000'
+      - '${LIVE_BEATS_PORT:-4000:4000}'
     entrypoint: sleep
     command: infinity
 volumes:
