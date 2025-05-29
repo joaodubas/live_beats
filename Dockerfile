@@ -17,26 +17,37 @@ ARG RUNNER_IMAGE="debian:bookworm-20250520-slim"
 
 FROM ${BUILDER_IMAGE} AS builder
 
+ARG LIVE_BEATS_ENV="prod"
+ARG LIVE_BEATS_GITHUB_CLIENT_ID=""
+ARG LIVE_BEATS_GITHUB_CLIENT_SECRET=""
+
 # install build dependencies
 RUN apt-get update -y \
-  && apt-get install -y build-essential curl git ffmpeg \
-  && apt-get clean \
-  && rm -f /var/lib/apt/lists/*_*
+    && apt-get install -y \
+        build-essential \
+        curl \
+        ffmpeg \
+        git \
+    && apt-get clean \
+    && rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
 
 # install hex + rebar
-RUN mix local.hex --force && \
-    mix local.rebar --force
+RUN mix do local.hex --force, local.rebar --force
 
 # set build ENV
-ENV MIX_ENV="prod"
-ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
+ENV MIX_ENV ${LIVE_BEATS_ENV}
+ENV BUMBLEBEE_CACHE_DIR "/app/.bumblebee"
 
 # install mix dependencies
+# NOTE: downgrade http to 1.1 to avoid errors with http2 proxy
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only $MIX_ENV
+RUN --mount=type=cache,target=/app/deps \
+    git config --global http.version HTTP/1.1 \
+    && git config --global http.postBuffer 524288000 \
+    && mix deps.get --only $MIX_ENV
 RUN mkdir config
 
 # copy compile-time config files before we compile dependencies
@@ -57,10 +68,9 @@ COPY lib lib
 COPY assets assets
 
 # compile assets
-RUN mix assets.deploy
-
-RUN mix compile
-# RUN mix run -e 'LiveBeats.Application.load_serving()' --no-start
+RUN mix assets.deploy \
+    && mix compile \
+    && mix run -e 'LiveBeats.Application.load_serving()' --no-start
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
@@ -73,28 +83,44 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y \
-  && apt-get install -y curl ffmpeg libncurses5 libstdc++6 locales openssl s3fs \
-  && apt-get clean \
-  && rm -f /var/lib/apt/lists/*_*
+    && apt-get install -y \
+        curl \
+        ffmpeg \
+        libncurses5 \
+        libstdc++6 \
+        locales \
+        openssl \
+        s3fs \
+    && apt-get clean \
+    && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-  && locale-gen
+    && locale-gen
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
+# Set local user
+RUN groupadd --gid 1000 app \
+    && useradd \
+        --uid 1000 \
+        --gid app \
+        --home-dir /home/app \
+        --create-home \
+        app
+
 WORKDIR "/app"
-RUN chown nobody /app
+RUN chown app:app /app
 ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/prod/rel/live_beats ./
-# COPY --from=builder --chown=nobody:root /app/.postgresql/ ./.postgresql
-COPY --from=builder --chown=nobody:root /app/.bumblebee/ ./.bumblebee
+COPY --from=builder --chown=app:app /app/_build/prod/rel/live_beats ./
+# COPY --from=builder --chown=app:app /app/.postgresql/ ./.postgresql
+COPY --from=builder --chown=app:app /app/.bumblebee/ ./.bumblebee
 
-USER root
+USER app
 
 # Set the runtime ENV
 ENV ECTO_IPV6="true"
